@@ -6,11 +6,32 @@ namespace :sat_catalogos do
       puts "Working with #{base_path.gsub('%d', catalogo)}"
       json = open(base_path.gsub('%d', catalogo)).read
       parsed = ActiveSupport::JSON.decode(json)
-      parsed.each do |record|
-        klass = "Sat::Catalogo::#{modelo.classify}".constantize
-        new_record = klass.find(record[:id]) rescue klass.create(id: record["id"])
-        attributes = record.except("id").inject({}) {|f, (k, v)| f[k.underscore[0..63]] = v ; f}
-        new_record.update_attributes(attributes.merge(sat_id: record["id"]))
+
+      klass = "Sat::Catalogo::#{modelo.camelize}".constantize
+      klass.transaction do
+        parsed.each do |record|
+          new_record = klass.find(record[:id]) rescue klass.create(id: record["id"])
+          attributes = record.except("id").inject({}) {|f, (k, v)| f[k.underscore[0..63]] = v; f}
+          new_record.update_attributes(attributes.merge(sat_id: record["id"]))
+        end
+      end
+    end
+  end
+
+  desc "Descarga y actualiza los catalogos"
+  task crea_registros: :environment do
+    require "activerecord-import/base"
+    catalogos.each do |modelo, catalogo|
+      puts "Working with #{base_path.gsub('%d', catalogo)}"
+      json = open(base_path.gsub('%d', catalogo)).read
+      parsed = ActiveSupport::JSON.decode(json)
+
+      klass = "Sat::Catalogo::#{modelo.camelize}".constantize
+      klass.transaction do
+        columns = []
+        columns += [:sat_id] if parsed.first.has_key?('id')
+        columns += parsed.first.except("id").keys.map() {|k, v| k.underscore[0..63]}
+        klass.import columns, parsed.map(&:values), validate: false
       end
     end
   end
@@ -27,12 +48,7 @@ namespace :sat_catalogos do
       migration_text << "    create_table :sat_catalogo_#{catalogo} do |t| \n"
       migration_text << "      t.string :sat_id\n"
       columns.each do |column|
-        next if column == "id"
-        if  column == "descripcion"
-          migration_text << "      t.text :#{column.underscore[0..63]} \n"
-        else
-          migration_text << "      t.string :#{column.underscore[0..63]} \n"
-        end
+        migration_text << build_column_definition(column)
       end
       migration_text << "    end\n\n"
     end
@@ -70,7 +86,7 @@ namespace :sat_catalogos do
     puts "attr_accessor :#{Sat::Catalogo::TipoDeComprobante.columns.map(&:name)[1..-1].join(', :')}"
     puts "attr_accessor :#{Sat::Catalogo::TipoFactor.columns.map(&:name)[1..-1].join(', :')}"
     puts "attr_accessor :#{Sat::Catalogo::TipoRelacion.columns.map(&:name)[1..-1].join(', :')}"
-    puts "attr_accessor :#{Sat::Catalogo::UsoCFDI.columns.map(&:name)[1..-1].join(', :')}"
+    puts "attr_accessor :#{Sat::Catalogo::UsoCfdi.columns.map(&:name)[1..-1].join(', :')}"
   end
 
   def catalogos
@@ -97,6 +113,20 @@ namespace :sat_catalogos do
 
   def base_path
     "https://raw.githubusercontent.com/bambucode/catalogos_sat_JSON/master/%d.json"
+  end
+
+  def build_column_definition(column)
+    if column == "id"
+      nil
+    else
+      "      t.#{column_type_mapping(column)} :#{column.underscore[0..63]} \n"
+    end
+  end
+
+  def column_type_mapping(column)
+    {
+        'description' => 'text'
+    }[column] || 'string'
   end
 end
 
