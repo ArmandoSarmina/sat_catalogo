@@ -9,7 +9,7 @@ namespace :sat_catalogos do
       parsed.each do |record|
         klass = "Sat::Catalogo::#{modelo.classify}".constantize
         new_record = klass.find(record[:id]) rescue klass.create(id: record["id"])
-        attributes = record.except("id").inject({}) {|f, (k, v)| f[k[0..63].underscore] = v ; f}
+        attributes = record.except("id").inject({}) {|f, (k, v)| f[k.underscore[0..63]] = v ; f}
         new_record.update_attributes(attributes.merge(sat_id: record["id"]))
       end
     end
@@ -28,7 +28,11 @@ namespace :sat_catalogos do
       migration_text << "      t.string :sat_id\n"
       columns.each do |column|
         next if column == "id"
-        migration_text << "      t.string :#{column.underscore[0..63]} \n"
+        if  column == "descripcion"
+          migration_text << "      t.text :#{column.underscore[0..63]} \n"
+        else
+          migration_text << "      t.string :#{column.underscore[0..63]} \n"
+        end
       end
       migration_text << "    end\n\n"
     end
