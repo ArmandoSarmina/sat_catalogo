@@ -25,7 +25,7 @@ module SatCatalogos
           'tipo_de_comprobante' => Sat::Catalogo::TipoDeComprobante,
           'tipo_factor' => Sat::Catalogo::TipoFactor,
           'tipo_relacion' => Sat::Catalogo::TipoRelacion,
-          'uso_cfdi' => Sat::Catalogo::UsoCFDI,
+          'uso_cfdi' => Sat::Catalogo::UsoCfdi,
       }[klass] || Sat::Catalogo::Aduana
     end
   end
