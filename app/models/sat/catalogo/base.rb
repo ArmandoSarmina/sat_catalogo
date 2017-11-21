@@ -13,6 +13,10 @@ module Sat
       def self.searchable_columns
         [:descripcion, :sat_id]
       end
+
+      def as_json
+        { label: descripcion, value: sat_id }
+      end
     end
   end
 end
