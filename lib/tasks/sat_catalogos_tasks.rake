@@ -2,7 +2,7 @@ desc "Actualiza catalogos de SAT desde https://github.com/bambucode/catalogos_sa
 namespace :sat_catalogos do
   desc "Descarga y actualiza los catalogos"
   task actualiza: :environment do
-    sat_catalogos.each do |modelo, catalogo|
+    catalogos.each do |modelo, catalogo|
       puts "Working with #{base_path.gsub('%d', catalogo)}"
       json = open(base_path.gsub('%d', catalogo)).read
       parsed = ActiveSupport::JSON.decode(json)
@@ -19,12 +19,12 @@ namespace :sat_catalogos do
   end
 
   desc "Descarga y actualiza los catalogos. ej. sat_catalogos:crea_registros[aduana]"
-  task crea_registros:, [:catalogo] => :environment do |_task, args|
+  task :crea_registros, [:catalogo] => :environment do |_task, args|
     require "activerecord-import/base"
     catalogo = args.catalogo
-    sat_catalogos = sat_catalogos.keep_if{ |k,v| k == catalogo } if catalogo
+    catalogos_seleccionados = catalogo ? catalogos.keep_if{ |k,v| k == catalogo } : catalogos
 
-    sat_catalogos.each do |modelo, catalogo|
+    catalogos_seleccionados.each do |modelo, catalogo|
       puts "Working with #{base_path.gsub('%d', catalogo)}"
       json = open(base_path.gsub('%d', catalogo)).read
       parsed = ActiveSupport::JSON.decode(json)
@@ -43,9 +43,9 @@ namespace :sat_catalogos do
   task :genera_migraciones do
     migration_text = "class CreateSatCatalogos < ActiveRecord::Migration \n"
     migration_text << "  def up\n"
-    sat_catalogos.keys.each do |catalogo|
-      puts "Abriendo... #{base_path.gsub('%d', sat_catalogos[catalogo])}"
-      json = open(base_path.gsub('%d', sat_catalogos[catalogo])).read
+    catalogos.keys.each do |catalogo|
+      puts "Abriendo... #{base_path.gsub('%d', catalogos[catalogo])}"
+      json = open(base_path.gsub('%d', catalogos[catalogo])).read
       parsed = ActiveSupport::JSON.decode(json)
       columns = parsed.first.keys
       migration_text << "    create_table :sat_catalogo_#{catalogo} do |t| \n"
@@ -57,7 +57,7 @@ namespace :sat_catalogos do
     end
     migration_text << "  end \n\n"
     migration_text << "  def down \n"
-    sat_catalogos.keys.each do |catalogo|
+    catalogos.keys.each do |catalogo|
       migration_text << "    drop_table :sat_catalogo_#{catalogo}\n"
     end
     migration_text << "  end \n\n"
@@ -92,7 +92,7 @@ namespace :sat_catalogos do
     puts "attr_accessor :#{Sat::Catalogo::UsoCfdi.columns.map(&:name)[1..-1].join(', :')}"
   end
 
-  def sat_catalogos
+  def catalogos
     {
         "aduana" => "c_Aduana",
         "clave_prod_serv" => "c_ClaveProdServ",
