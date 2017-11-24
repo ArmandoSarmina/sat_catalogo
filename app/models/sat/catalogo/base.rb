@@ -4,10 +4,11 @@ module Sat
       self.abstract_class = true
 
       def self.search(keyword)
+        keyword.empty? ? limite = nil : limite = 20
         conditions = searchable_columns.map do |column|
           "#{column} like :keyword"
         end.join(' OR ')
-        where(conditions, keyword: "%#{keyword}%").limit(20)
+        where(conditions, keyword: "%#{keyword}%").limit(limite)
       end
 
       def self.searchable_columns
