@@ -1,3 +1,5 @@
+require 'active_record'
+
 desc "Actualiza catalogos de SAT desde https://github.com/bambucode/catalogos_sat_JSON"
 namespace :sat_catalogos do
   desc "Descarga y actualiza los catalogos"
@@ -40,34 +42,84 @@ namespace :sat_catalogos do
   end
 
   desc "Crea las migraciones iniciales"
-  task :genera_migraciones do
-    migration_text = "class CreateSatCatalogos < ActiveRecord::Migration \n"
-    migration_text << "  def up\n"
-    catalogos.keys.each do |catalogo|
-      puts "Abriendo... #{base_path.gsub('%d', catalogos[catalogo])}"
-      json = open(base_path.gsub('%d', catalogos[catalogo])).read
-      parsed = ActiveSupport::JSON.decode(json)
-      columns = parsed.first.keys
-      migration_text << "    create_table :sat_catalogo_#{catalogo} do |t| \n"
-      migration_text << "      t.string :sat_id\n"
-      columns.each do |column|
-        migration_text << build_column_definition(column)
-      end
-      migration_text << "    end\n\n"
-    end
-    migration_text << "  end \n\n"
-    migration_text << "  def down \n"
-    catalogos.keys.each do |catalogo|
-      migration_text << "    drop_table :sat_catalogo_#{catalogo}\n"
-    end
-    migration_text << "  end \n\n"
-    migration_text << "end \n"
+  task :genera_migraciones => :environment do
+    file = Dir.foreach(File.join(Rails.root, 'db', 'migrate')).select{ |file| /create_sat_catalogos/.match(file) }
 
-    puts "Generando el archivo"
-    file_name = File.join(Rails.root, 'db/migrate', "#{Time.now.strftime('%Y%m%d%H%M%S')}_create_sat_catalogos.rb")
-    open(file_name, 'w') do |file|
-      file.puts migration_text
+    if file.any?
+      migration_text = "class AddNewSatCatalogosAttributes < ActiveRecord::Migration \n"
+      migration_text << "  def up\n"
+      file_name = ""
+
+      catalogos.keys.each do |catalogo|
+        puts "Abriendo... #{base_path.gsub('%d', catalogos[catalogo])}"
+        json = open(base_path.gsub('%d', catalogos[catalogo])).read
+        parsed = ActiveSupport::JSON.decode(json)
+        columns = parsed.first.keys
+
+        if defined?("Sat::Catalogo::#{catalogo.camelize}".constantize)
+          old_columns = "Sat::Catalogo::#{catalogo.camelize}".constantize.columns.map(&:name)
+          new_columns = columns.map(&:underscore) - old_columns
+
+          new_columns.each do |column|
+            migration_text << "    add_column :sat_catalogo_#{catalogo}, :#{column.underscore.downcase}, :string \n"
+          end if new_columns.any?
+        end
+      end
+      migration_text << "  end \n\n"
+
+      migration_text << "  def down \n"
+      catalogos.keys.each do |catalogo|
+        json = open(base_path.gsub('%d', catalogos[catalogo])).read
+        parsed = ActiveSupport::JSON.decode(json)
+        columns = parsed.first.keys
+
+        if defined?("Sat::Catalogo::#{catalogo.camelize}".constantize)
+          old_columns = "Sat::Catalogo::#{catalogo.camelize}".constantize.columns.map(&:name)
+          new_columns = columns.map(&:underscore) - old_columns
+
+          new_columns.each do |column|
+            migration_text << "    remove_column :sat_catalogo_#{catalogo}, :#{column.underscore.downcase} \n"
+          end  if new_columns.any?
+        end
+      end
+      migration_text << "  end \n"
+      migration_text << "end \n"
+
+      puts "Generando el archivo"
+      file_name = File.join(Rails.root, 'db/migrate', "#{Time.now.strftime('%Y%m%d%H%M%S')}_add_new_sat_catalogos_attributes.rb")
+      open(file_name, 'w') do |file|
+        file.puts migration_text
+      end
+    else
+      migration_text = "class CreateSatCatalogos < ActiveRecord::Migration \n"
+      migration_text << "  def up\n"
+      catalogos.keys.each do |catalogo|
+        puts "Abriendo... #{base_path.gsub('%d', catalogos[catalogo])}"
+        json = open(base_path.gsub('%d', catalogos[catalogo])).read
+        parsed = ActiveSupport::JSON.decode(json)
+        columns = parsed.first.keys
+        migration_text << "    create_table :sat_catalogo_#{catalogo} do |t| \n"
+        migration_text << "      t.string :sat_id\n"
+        columns.each do |column|
+          migration_text << build_column_definition(column)
+        end
+        migration_text << "    end\n\n"
+      end
+      migration_text << "  end \n\n"
+      migration_text << "  def down \n"
+      catalogos.keys.each do |catalogo|
+        migration_text << "    drop_table :sat_catalogo_#{catalogo}\n"
+      end
+      migration_text << "  end \n\n"
+      migration_text << "end \n"
+
+      puts "Generando el archivo"
+      file_name = File.join(Rails.root, 'db/migrate', "#{Time.now.strftime('%Y%m%d%H%M%S')}_create_sat_catalogos.rb")
+      open(file_name, 'w') do |file|
+        file.puts migration_text
+      end
     end
+
     puts "Listo! lo puedes encontrar aqui: #{file_name}"
   end
 
