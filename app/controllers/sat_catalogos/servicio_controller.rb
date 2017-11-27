@@ -2,7 +2,7 @@ module SatCatalogos
   class ServicioController < ApplicationController
 
     def index
-      records = build_klass(params[:catalogo]).search(params[:term])
+      records = build_klass(params[:catalogo]).search(params)
       render json: records.as_json
     end
 
