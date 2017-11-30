@@ -7,7 +7,7 @@ module Sat
         conditions = searchable_columns.map do |column|
           "#{column} like :keyword"
         end.join(' OR ')
-        where(conditions, keyword: "%#{keyword}%").limit(20)
+        where(conditions, keyword: "%#{keyword}%")
       end
 
       def self.searchable_columns
